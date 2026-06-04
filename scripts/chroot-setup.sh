@@ -3,15 +3,20 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive HOME=/root LC_ALL=C
 
 # ============================================================================
-# Runs INSIDE the chroot. Installs GNOME, Docker, the installer, wires up
-# Vaultwarden, and enables the services. Invoked by build-iso.sh.
+# Runs INSIDE the chroot. Builds a hardened, audited Ubuntu 24.04 GNOME live
+# system: two users (root + non-admin worker), comprehensive auditing
+# (auditd + Zeek + OpenSnitch, ~6-month retention), Vaultwarden, LibreOffice /
+# VS Code / GIMP, and the ubiquity installer. Invoked by build-iso.sh.
+#
+# Passwords come from the environment (defaults are intentionally weak — CHANGE
+# THEM): ROOT_PASSWORD, WORKER_PASSWORD.
 # ============================================================================
+ROOT_PASSWORD="${ROOT_PASSWORD:-root}"
+WORKER_PASSWORD="${WORKER_PASSWORD:-worker}"
 
 echo "==> [chroot] base configuration"
-# Prevent daemons from starting during package installation in the chroot.
-printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d   # don't start daemons in chroot
 chmod +x /usr/sbin/policy-rc.d
-
 echo "s4s-pc" > /etc/hostname
 cat > /etc/hosts <<'EOF'
 127.0.0.1   localhost
@@ -29,12 +34,10 @@ update-locale LANG=en_US.UTF-8
 
 echo "==> [chroot] kernel + live session (casper)"
 apt-get install -y --no-install-recommends \
-  linux-generic \
-  casper \
-  ubuntu-standard \
+  linux-generic casper ubuntu-standard \
   discover laptop-detect os-prober \
   network-manager network-manager-gnome \
-  sudo curl ca-certificates gnupg zstd
+  sudo curl ca-certificates gnupg zstd jq sqlite3 whois
 
 echo "==> [chroot] GNOME desktop (curated; no snap)"
 apt-get install -y --no-install-recommends \
@@ -50,25 +53,79 @@ apt-get install -y --no-install-recommends \
   language-pack-en language-pack-gnome-en
 
 echo "==> [chroot] Docker + Vaultwarden runtime"
-apt-get install -y --no-install-recommends \
-  docker.io docker-compose-v2 skopeo
+apt-get install -y --no-install-recommends docker.io docker-compose-v2 skopeo
 
-echo "==> [chroot] installer (install-to-disk)"
-apt-get install -y --no-install-recommends \
-  ubiquity ubiquity-frontend-gtk ubiquity-slideshow-ubuntu \
-  || echo "WARN: ubiquity unavailable — image will be live-only"
+echo "==> [chroot] productivity apps: LibreOffice, GIMP, VS Code"
+apt-get install -y --no-install-recommends libreoffice gimp
+# VS Code is not in Ubuntu repos -> Microsoft apt repo.
+install -m0755 -d /etc/apt/keyrings
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+  | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+  > /etc/apt/sources.list.d/vscode.list
+apt-get update
+apt-get install -y --no-install-recommends code
+
+echo "==> [chroot] auditing: auditd + audispd-plugins"
+apt-get install -y --no-install-recommends auditd audispd-plugins
+# Persistent journald (the drop-in is shipped via overlay; ensure dir exists).
+mkdir -p /var/log/journal
+systemd-tmpfiles --create --prefix /var/log/journal 2>/dev/null || true
+
+echo "==> [chroot] network logging: OpenSnitch (noble universe) + Zeek (OBS repo)"
+apt-get install -y --no-install-recommends opensnitch python3-opensnitch-ui
+mkdir -p /var/lib/opensnitchd
+# Zeek is NOT in noble -> openSUSE OBS security:zeek repo.
+curl -fsSL https://download.opensuse.org/repositories/security:zeek/xUbuntu_24.04/Release.key \
+  | gpg --dearmor -o /etc/apt/keyrings/zeek.gpg
+echo "deb [signed-by=/etc/apt/keyrings/zeek.gpg] https://download.opensuse.org/repositories/security:/zeek/xUbuntu_24.04/ /" \
+  > /etc/apt/sources.list.d/zeek.list
+apt-get update
+apt-get install -y --no-install-recommends zeek-lts
+# Configure Zeek: standalone capture on the primary NIC (resolved at boot),
+# hourly rotation, ~26-week (182 day) retention.
+ZEEKETC=/opt/zeek/etc
+cat > "${ZEEKETC}/node.cfg" <<'EOF'
+[zeek]
+type=standalone
+host=localhost
+# __IFACE__ is replaced at boot by zeek.service (the live NIC name varies).
+interface=af_packet::__IFACE__
+EOF
+sed -i '/^LogRotationInterval/d; /^LogExpireInterval/d; /^CompressLogs/d' "${ZEEKETC}/zeekctl.cfg"
+cat >> "${ZEEKETC}/zeekctl.cfg" <<'EOF'
+LogRotationInterval = 3600
+LogExpireInterval = 182 day
+CompressLogs = 1
+EOF
+
+echo "==> [chroot] users: root + non-admin worker"
+# root: set a password (unlocks root for console/su; GDM still blocks root GUI login).
+echo "root:${ROOT_PASSWORD}" | chpasswd
+# worker: normal desktop groups only — NOT sudo, NOT docker, NOT lxd/lpadmin.
+useradd -m -s /bin/bash -c "Worker" worker
+echo "worker:${WORKER_PASSWORD}" | chpasswd
+for g in audio video plugdev netdev bluetooth; do
+  getent group "$g" >/dev/null 2>&1 && gpasswd -a worker "$g" >/dev/null || true
+done
+# Belt-and-suspenders: make sure worker is in none of the admin groups.
+for g in sudo adm docker lxd libvirt lpadmin sambashare; do
+  gpasswd -d worker "$g" 2>/dev/null || true
+done
+
+echo "==> [chroot] audit rules permissions"
+chmod 0640 /etc/audit/rules.d/*.rules 2>/dev/null || true
+chmod 0644 /etc/polkit-1/rules.d/00-restrict-software-install.rules 2>/dev/null || true
 
 echo "==> [chroot] enable services"
 systemctl set-default graphical.target
-systemctl enable gdm3 || true
-systemctl enable NetworkManager || true
-systemctl enable docker || true
-systemctl enable vaultwarden.service || true
+for u in gdm3 NetworkManager docker auditd opensnitch \
+         zeek.service zeek-cron.timer opensnitch-prune.timer \
+         vaultwarden.service s4s-lock-worker.service; do
+  systemctl enable "$u" 2>/dev/null || echo "  (enable $u deferred to first boot)"
+done
 
-# NetworkManager owns networking in the live/desktop session.
-chmod 0600 /etc/netplan/01-network-manager-all.yaml 2>/dev/null || true
-
-echo "==> [chroot] pin Vaultwarden + browser to the GNOME dash"
+echo "==> [chroot] pin apps to the GNOME dash + compile schemas"
 glib-compile-schemas /usr/share/glib-2.0/schemas || true
 
 echo "==> [chroot] regenerate initramfs with casper hooks"
@@ -79,9 +136,7 @@ apt-get autoremove -y
 apt-get clean
 rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 rm -f /usr/sbin/policy-rc.d
-# Fresh machine-id on each boot.
 : > /etc/machine-id
 rm -f /var/lib/dbus/machine-id
 ln -s /etc/machine-id /var/lib/dbus/machine-id
-
 echo "==> [chroot] done"

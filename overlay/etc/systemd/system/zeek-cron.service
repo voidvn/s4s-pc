@@ -1,0 +1,8 @@
+[Unit]
+Description=zeekctl cron (log expiry + housekeeping)
+After=zeek.service
+
+[Service]
+Type=oneshot
+Environment=ZEEKPATH=/opt/zeek
+ExecStart=/opt/zeek/bin/zeekctl cron

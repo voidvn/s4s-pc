@@ -1,0 +1,45 @@
+{
+  "folders": [],
+  "items": [
+    {
+      "type": 1,
+      "name": "Fake Bank",
+      "notes": "Decoy credential. Autofill only — password is hidden from 'worker'.",
+      "login": {
+        "uris": [{ "match": null, "uri": "https://fake-bank.example" }],
+        "username": "worker@fake-bank.example",
+        "password": "Decoy-Bank-7f3Q9zK2"
+      }
+    },
+    {
+      "type": 1,
+      "name": "Fake Mail",
+      "notes": "Decoy credential.",
+      "login": {
+        "uris": [{ "match": null, "uri": "https://fake-mail.example" }],
+        "username": "worker@fake-mail.example",
+        "password": "Decoy-Mail-b8R4xV1n"
+      }
+    },
+    {
+      "type": 1,
+      "name": "Fake CRM",
+      "notes": "Decoy credential.",
+      "login": {
+        "uris": [{ "match": null, "uri": "https://fake-crm.example" }],
+        "username": "worker@fake-crm.example",
+        "password": "Decoy-CRM-3pL6sW8d"
+      }
+    },
+    {
+      "type": 1,
+      "name": "Fake Admin Panel",
+      "notes": "Decoy credential.",
+      "login": {
+        "uris": [{ "match": null, "uri": "https://fake-admin.example" }],
+        "username": "admin@fake-admin.example",
+        "password": "Decoy-Admin-Qz5mН2tY"
+      }
+    }
+  ]
+}

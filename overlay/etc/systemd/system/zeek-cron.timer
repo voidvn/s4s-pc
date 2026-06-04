@@ -1,0 +1,9 @@
+[Unit]
+Description=Run zeekctl cron every 5 minutes (drives LogExpireInterval=182d retention)
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target

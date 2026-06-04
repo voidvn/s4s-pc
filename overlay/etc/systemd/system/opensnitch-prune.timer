@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily OpenSnitch DB retention prune (~6 months)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

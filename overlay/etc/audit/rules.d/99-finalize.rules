@@ -1,0 +1,5 @@
+## Loaded LAST. -e 1 = enabled + MUTABLE (so augenrules --load can update rules).
+## Switch to -e 2 (immutable until reboot) once the ruleset is stable and you
+## want CIS/STIG tamper-resistance.
+-e 1
+##-e 2

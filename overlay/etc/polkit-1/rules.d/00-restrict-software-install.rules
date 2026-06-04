@@ -1,0 +1,25 @@
+// Deny software install/update and privilege escalation to non-admins.
+// Named 00-* so it sorts BEFORE vendor rules (e.g. 49-polkit-pkla-compat) and
+// is evaluated first — polkit stops at the first non-undefined result.
+// Admins = members of the 'sudo' group (root + nobody else here, since worker
+// is deliberately NOT in sudo). apt/dpkg are already root-only; this closes the
+// GUI/D-Bus path (GNOME Software, PackageKit, snap, flatpak, fwupd, pkexec).
+polkit.addRule(function(action, subject) {
+    var isAdmin = subject.isInGroup("sudo");
+    var blocked = [
+        "org.freedesktop.packagekit.",
+        "io.snapcraft.snapd.",
+        "org.freedesktop.Flatpak.",
+        "org.freedesktop.fwupd.",
+        "com.ubuntu.softwareproperties.",
+        "org.debian.apt."
+    ];
+    for (var i = 0; i < blocked.length; i++) {
+        if (action.id.indexOf(blocked[i]) === 0) {
+            return isAdmin ? polkit.Result.AUTH_ADMIN : polkit.Result.NO;
+        }
+    }
+    if (action.id == "org.freedesktop.policykit.exec") {
+        return isAdmin ? polkit.Result.AUTH_ADMIN : polkit.Result.NO;
+    }
+});

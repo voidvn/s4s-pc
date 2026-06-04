@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep 'worker' non-privileged (strip admin groups added by casper)
+DefaultDependencies=no
+After=systemd-sysusers.service casper.service
+Before=gdm3.service display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/s4s-lock-worker.sh
+
+[Install]
+WantedBy=multi-user.target

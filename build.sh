@@ -18,6 +18,8 @@ set -euo pipefail
 IMAGE="s4s-pc-builder:amd64"
 MODE="${1:-build}"
 VW_MODE="${VW_MODE:-offline}"
+ROOT_PASSWORD="${ROOT_PASSWORD:-root}"        # override: ROOT_PASSWORD=... ./build.sh
+WORKER_PASSWORD="${WORKER_PASSWORD:-worker}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "${ROOT}/out"
@@ -31,6 +33,8 @@ docker run --rm -it \
   --privileged \
   -e MODE="${MODE}" \
   -e VW_MODE="${VW_MODE}" \
+  -e ROOT_PASSWORD="${ROOT_PASSWORD}" \
+  -e WORKER_PASSWORD="${WORKER_PASSWORD}" \
   -v "${ROOT}/out:/build/out" \
   "${IMAGE}"
 

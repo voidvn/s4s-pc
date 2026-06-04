@@ -1,0 +1,11 @@
+## Loaded first. Control directives.
+## Delete all existing rules.
+-D
+## Kernel backlog buffer — 'log everything' needs headroom. Raise if auditctl -s shows lost>0.
+-b 16384
+## Failure mode: 1=printk (log). Never 2=panic on a workstation.
+-f 1
+## Drop events instead of throttling the whole system under flood.
+--backlog_wait_time 0
+## Ignore load errors (e.g. a syscall not present on this arch).
+-i

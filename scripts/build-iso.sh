@@ -12,6 +12,8 @@ SUITE="${SUITE:-noble}"
 MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu/}"
 SECMIRROR="${SECMIRROR:-http://security.ubuntu.com/ubuntu/}"
 VW_MODE="${VW_MODE:-offline}"             # offline = bundle image | pull = fetch on 1st boot
+ROOT_PASSWORD="${ROOT_PASSWORD:-root}"    # CHANGE THESE: passwords for the two accounts
+WORKER_PASSWORD="${WORKER_PASSWORD:-worker}"
 VOLID="S4S_PC"
 ISO_NAME="${ISO_NAME:-s4s-pc-${SUITE}-amd64.iso}"
 
@@ -77,8 +79,9 @@ echo "VW_MODE=${VW_MODE}" > "${CHROOT}/opt/vaultwarden/.vw_mode"
 # === 6. Configure the system inside the chroot =============================
 cp "${ROOT}/scripts/chroot-setup.sh" "${CHROOT}/root/chroot-setup.sh"
 chmod +x "${CHROOT}/root/chroot-setup.sh"
-log "running chroot-setup.sh (GNOME + Docker + Vaultwarden glue + installer)"
-chroot "${CHROOT}" /root/chroot-setup.sh
+log "running chroot-setup.sh (users, GNOME, Docker, auditing, apps, installer)"
+chroot "${CHROOT}" env ROOT_PASSWORD="${ROOT_PASSWORD}" WORKER_PASSWORD="${WORKER_PASSWORD}" \
+  /root/chroot-setup.sh
 rm -f "${CHROOT}/root/chroot-setup.sh"
 
 # === 7. Kernel + initrd + package manifest ================================
@@ -113,8 +116,12 @@ echo "full_cd/single" > "${IMG}/.disk/cd_type"
 cat > "${IMG}/boot/grub/grub.cfg" <<'EOF'
 set timeout=10
 set default=0
-menuentry "Try or Install s4s-pc (Ubuntu 24.04 + Vaultwarden)" {
+menuentry "Try s4s-pc (live: worker desktop)" {
     linux  /casper/vmlinuz boot=casper quiet splash ---
+    initrd /casper/initrd
+}
+menuentry "Install s4s-pc to disk (automated: root + worker)" {
+    linux  /casper/vmlinuz boot=casper automatic-ubiquity file=/cdrom/preseed/ours.seed debian-installer/locale=en_US.UTF-8 keyboard-configuration/layoutcode=us quiet splash noprompt ---
     initrd /casper/initrd
 }
 menuentry "s4s-pc - safe graphics (nomodeset)" {
@@ -125,6 +132,46 @@ menuentry "Check disc for defects" {
     linux  /casper/vmlinuz boot=casper integrity-check quiet splash ---
     initrd /casper/initrd
 }
+EOF
+
+# --- ubiquity preseed: install exactly root + non-admin 'worker' ------------
+# Hash the passwords (SHA-512 crypt). worker is stripped from sudo and the
+# polkit lockdown is installed in ubiquity/success_command (runs in-target).
+ROOT_HASH="$(openssl passwd -6 "${ROOT_PASSWORD}")"
+WORKER_HASH="$(openssl passwd -6 "${WORKER_PASSWORD}")"
+mkdir -p "${IMG}/preseed"
+cp "${ROOT}/overlay/etc/polkit-1/rules.d/00-restrict-software-install.rules" \
+   "${IMG}/preseed/00-restrict-software-install.rules"
+cat > "${IMG}/preseed/ours.seed" <<EOF
+d-i debian-installer/locale            string en_US.UTF-8
+d-i keyboard-configuration/layoutcode  string us
+d-i console-setup/ask_detect           boolean false
+
+# Installed-system primary user 'worker' (demoted to non-admin below).
+d-i passwd/user-fullname        string Worker
+d-i passwd/username             string worker
+d-i passwd/user-password-crypted password ${WORKER_HASH}
+d-i user-setup/allow-password-weak boolean true
+d-i user-setup/encrypt-home     boolean false
+d-i passwd/auto-login           boolean false
+d-i passwd/user-default-groups  string
+
+# Enable + set the root password (root is locked by default on Ubuntu).
+d-i passwd/root-login           boolean true
+d-i passwd/root-password-crypted password ${ROOT_HASH}
+
+ubiquity ubiquity/summary       note
+ubiquity ubiquity/reboot        boolean true
+
+# After install: strip admin from worker + install the polkit lockdown in /target.
+ubiquity ubiquity/success_command string \\
+  in-target gpasswd -d worker sudo ; \\
+  in-target gpasswd -d worker adm ; \\
+  in-target deluser worker lpadmin || true ; \\
+  in-target deluser worker sambashare || true ; \\
+  mkdir -p /target/etc/polkit-1/rules.d ; \\
+  cp /cdrom/preseed/00-restrict-software-install.rules /target/etc/polkit-1/rules.d/00-restrict-software-install.rules ; \\
+  in-target chmod 644 /etc/polkit-1/rules.d/00-restrict-software-install.rules
 EOF
 
 # A tiny bootstrap config embedded into the standalone GRUB images: it locates

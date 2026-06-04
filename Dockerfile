@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         dosfstools \
         skopeo \
         ubuntu-keyring \
-        ca-certificates curl gnupg \
+        ca-certificates curl gnupg openssl \
         util-linux \
     && rm -rf /var/lib/apt/lists/*
 

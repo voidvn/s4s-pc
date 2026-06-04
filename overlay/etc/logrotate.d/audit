@@ -1,0 +1,17 @@
+# Bounds disk for auditd's keep_logs strategy: delete rotated audit logs older
+# than ~6 months (183 days), compressed. auditd does NOT rotate these itself
+# (keep_logs), so logrotate owns rotation here — no double-rotation.
+/var/log/audit/audit.log {
+    weekly
+    rotate 30
+    maxage 183
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0600 root root
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl kill -s SIGUSR2 auditd.service 2>/dev/null || true
+    endscript
+}

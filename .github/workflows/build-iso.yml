@@ -43,6 +43,8 @@ jobs:
           docker run --rm --privileged \
             -e MODE=build \
             -e VW_MODE="${{ github.event.inputs.vw_mode || 'offline' }}" \
+            -e ROOT_PASSWORD="${{ secrets.ROOT_PASSWORD || 'root' }}" \
+            -e WORKER_PASSWORD="${{ secrets.WORKER_PASSWORD || 'worker' }}" \
             -v "$PWD/out:/build/out" \
             s4s-pc-builder:amd64
           ls -lh out/

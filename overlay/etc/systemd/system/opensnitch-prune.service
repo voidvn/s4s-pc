@@ -1,0 +1,6 @@
+[Unit]
+Description=Prune OpenSnitch event DB older than ~6 months
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/prune-opensnitch-db.sh
