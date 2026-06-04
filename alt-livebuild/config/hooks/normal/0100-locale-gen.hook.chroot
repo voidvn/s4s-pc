@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+# Generate the locale so the GNOME session doesn't spam "cannot set locale".
+# Installing language-pack-* alone is not enough — the locale must be generated.
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+update-locale LANG=en_US.UTF-8

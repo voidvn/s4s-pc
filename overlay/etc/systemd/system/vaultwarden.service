@@ -1,0 +1,19 @@
+[Unit]
+Description=Vaultwarden (dockerized password manager) via docker compose
+Documentation=https://github.com/dani-garcia/vaultwarden
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/vaultwarden
+# Loads the offline-bundled image (and switches Docker to vfs in a live session).
+ExecStartPre=/usr/local/bin/vaultwarden-load.sh
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+# ============================================================================
+# GNOME desktop (the "рабочее окружение GNOME").
+#
+# ubuntu-desktop-minimal is the Ubuntu-blessed metapackage: it hard-depends on
+# gdm3 + gnome-shell and is what the stock Noble ISO ships, so it is the most
+# reliably-bootable choice. (gnome-core is the Debian upstream set; a hand-rolled
+# gnome-session list is the most fragile — easy to miss a piece and get a black
+# screen.)
+#
+# network-manager and the language packs are only Recommends of the metapackage,
+# so we list them explicitly — otherwise a Recommends-off build boots to a
+# desktop with no networking / no translations.
+# ============================================================================
+
+ubuntu-desktop-minimal
+
+# Display manager (explicit, though ubuntu-desktop-minimal already pulls it).
+gdm3
+
+# Networking — only a Recommends of the desktop metapackage, so pin it.
+network-manager
+network-manager-gnome
+
+# Locale / translations — base only pulls language-selector-common.
+language-pack-en
+language-pack-gnome-en
+locales

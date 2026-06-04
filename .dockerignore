@@ -1,0 +1,8 @@
+.git/
+out/
+work/
+alt-livebuild/
+docs/
+*.iso
+*.log
+.DS_Store

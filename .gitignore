@@ -1,0 +1,20 @@
+# Build artifacts
+out/*.iso
+out/*.log
+
+# Build scratch (debootstrap chroot, squashfs staging, grub images)
+work/
+
+# live-build working dirs (only if you run the alt engine locally)
+alt-livebuild/.build/
+alt-livebuild/chroot/
+alt-livebuild/binary/
+alt-livebuild/cache/
+alt-livebuild/config/binary
+alt-livebuild/config/bootstrap
+alt-livebuild/config/chroot
+alt-livebuild/config/common
+alt-livebuild/config/source
+
+# macOS noise
+.DS_Store

@@ -1,0 +1,25 @@
+# ============================================================================
+# Live-session CORE. This is the single most important package list.
+# Without `casper` the ISO boots a kernel but drops to a BusyBox/initramfs
+# prompt with NO live desktop. (live-build's --mode ubuntu does NOT add it for
+# you — Debian bug #772522 — so we list it explicitly.)
+# ============================================================================
+
+# The Ubuntu live-session implementation (creates the live "ubuntu" user with
+# blank password + passwordless sudo, sets up autologin, mounts the squashfs).
+casper
+
+# Kernel + initramfs that casper hooks into.
+linux-generic
+
+# So apt INSIDE the live system trusts the Ubuntu archive.
+ubuntu-keyring
+
+# Standard Ubuntu base utilities.
+ubuntu-standard
+
+# UEFI boot chain. With --uefi-secure-boot auto the build won't fail if the
+# signed packages are unavailable, but listing them gives Secure Boot support.
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed

@@ -1,0 +1,57 @@
+name: build-iso
+
+# Builds the amd64 ISO on a NATIVE x86_64 runner (no emulation, ~15-30 min).
+# On a PUBLIC repo, Actions minutes and artifact storage are free, so the
+# multi-GB ISO uploads without hitting the 500 MB free-tier quota.
+# Grab it from: Actions tab -> this run -> "Artifacts" -> s4s-pc-iso (zip).
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      vw_mode:
+        description: "Vaultwarden image: offline (bundle, +~250MB) or pull (on first boot)"
+        type: choice
+        options: [ offline, pull ]
+        default: offline
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04          # native amd64
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # A full GNOME ISO build needs ~12-15 GB; the runner's OS disk is tight.
+      # Drop the big preinstalled toolchains we don't use to free ~20+ GB.
+      - name: Free up disk space
+        run: |
+          echo "Before:"; df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+                      "$AGENT_TOOLSDIRECTORY" || true
+          sudo docker image prune --all --force || true
+          echo "After:"; df -h /
+
+      - name: Build the builder image
+        run: docker build -t s4s-pc-builder:amd64 .
+
+      - name: Build the ISO
+        run: |
+          mkdir -p out
+          docker run --rm --privileged \
+            -e MODE=build \
+            -e VW_MODE="${{ github.event.inputs.vw_mode || 'offline' }}" \
+            -v "$PWD/out:/build/out" \
+            s4s-pc-builder:amd64
+          ls -lh out/
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: s4s-pc-iso
+          path: out/*.iso
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0      # ISO is already compressed; skip re-zipping

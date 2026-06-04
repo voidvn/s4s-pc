@@ -1,0 +1,26 @@
+# ============================================================================
+# Preinstalled applications.
+#
+# THE PASSWORD MANAGER ("vaultpass или чет типа такого"):
+#   There is no apt package literally named "vaultpass" (that name only exists
+#   as a couple of minor browser extensions). The robust open-source desktop
+#   password manager for Linux is KeePassXC — package `keepassxc`, in the
+#   `universe` component of Ubuntu 24.04. It is a Qt app but runs fine on GNOME
+#   and ships its own launcher (org.keepassxc.KeePassXC.desktop). We pin it to
+#   the GNOME dash via a gsettings override (see config/includes.chroot/...).
+#
+# To swap it for another manager, see docs/CUSTOMIZE.md.
+# ============================================================================
+
+# >>> Password manager <<<
+keepassxc
+
+# --- Optional extras (uncomment to include) ---------------------------------
+# pass            # CLI password store (git-backed, gpg-encrypted)
+# bitwarden       # NOTE: not in the Ubuntu archive — see docs/CUSTOMIZE.md
+
+# --- Handy console tools ----------------------------------------------------
+nano
+curl
+git
+htop

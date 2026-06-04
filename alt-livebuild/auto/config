@@ -1,0 +1,58 @@
+#!/bin/sh
+set -e
+
+# ============================================================================
+# ALTERNATIVE engine — Ubuntu live-build (BIOS-only).
+#
+# This is the original live-build configuration, kept for reference. The
+# PRIMARY engine is debootstrap (see ../../scripts/), which produces a
+# BIOS+UEFI image AND wires up Vaultwarden. Ubuntu ships an ancient live-build
+# fork (3.0~a57) that:
+#   * uses different flag names than the Debian live-build manual, and
+#   * produces ONLY a Legacy-BIOS bootable ISO (no UEFI — verified: it uses
+#     genisoimage with BIOS-only El Torito, no efi.img/grub-efi anywhere).
+# It also does NOT preinstall Vaultwarden — that wiring lives in the primary
+# engine's overlay/. Use this only if you specifically need the live-build
+# toolchain and BIOS-only boot is acceptable.
+#
+# Flags corrected for live-build 3.0~a57 (what `lb config` here accepts):
+#   --architectures (not --architecture)    --bootloader (singular, BIOS)
+#   --debian-installer false (not 'none')    no --updates/--bootloaders/--uefi-*
+# ============================================================================
+
+MIRROR="${LB_MIRROR:-http://archive.ubuntu.com/ubuntu/}"
+SECURITY="${LB_SECURITY_MIRROR:-http://security.ubuntu.com/ubuntu/}"
+ARCH="${LB_ARCH:-amd64}"
+DIST="${LB_DIST:-noble}"
+AREAS="main restricted universe multiverse"
+
+lb config noauto \
+	--mode ubuntu \
+	--architectures "${ARCH}" \
+	--distribution "${DIST}" \
+	--parent-distribution "${DIST}" \
+	--archive-areas "${AREAS}" \
+	--parent-archive-areas "${AREAS}" \
+	--mirror-bootstrap "${MIRROR}" \
+	--mirror-chroot "${MIRROR}" \
+	--mirror-binary "${MIRROR}" \
+	--mirror-chroot-security "${SECURITY}" \
+	--mirror-binary-security "${SECURITY}" \
+	--parent-mirror-bootstrap "${MIRROR}" \
+	--parent-mirror-chroot "${MIRROR}" \
+	--parent-mirror-binary "${MIRROR}" \
+	--parent-mirror-chroot-security "${SECURITY}" \
+	--parent-mirror-binary-security "${SECURITY}" \
+	--security true \
+	--apt apt \
+	--apt-recommends true \
+	--binary-images iso-hybrid \
+	--bootloader syslinux \
+	--debian-installer false \
+	--linux-flavours generic \
+	--initramfs auto \
+	--bootappend-live "boot=casper quiet splash ---" \
+	--iso-application "s4s-pc Ubuntu 24.04 Live (BIOS)" \
+	--iso-publisher "s4s-pc" \
+	--iso-volume "s4s-pc-noble-bios" \
+	"${@}"

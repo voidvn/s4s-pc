@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Vaultwarden (Web Vault)
+GenericName=Password Manager
+Comment=Open the local Vaultwarden password manager in the browser
+Exec=xdg-open http://localhost:8080
+Icon=dialog-password
+Terminal=false
+Categories=Utility;Security;
+Keywords=password;vault;bitwarden;vaultwarden;
