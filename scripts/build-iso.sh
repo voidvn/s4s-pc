@@ -178,9 +178,12 @@ EOF
 # the real medium (by the unique /.disk/info marker) and sources the menu above.
 cat > "${WORK}/grub-embed.cfg" <<'EOF'
 search --no-floppy --set=root --file /.disk/info
-set prefix=($root)/boot/grub
 configfile ($root)/boot/grub/grub.cfg
 EOF
+# NOTE: do NOT 'set prefix' to the CD here — that makes GRUB look for its modules
+# (linux.mod, etc.) on the CD, where they don't exist ("linux.mod not found").
+# Leaving prefix at the built-in memdisk keeps module loading working; $root
+# (set by search) is all the menu needs to find the kernel/initrd on the CD.
 
 # === 12. Assemble the hybrid BIOS + UEFI ISO ===============================
 log "building BIOS core image (grub i386-pc)"
