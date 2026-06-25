@@ -177,8 +177,7 @@ EOF
 # A tiny bootstrap config embedded into the standalone GRUB images: it locates
 # the real medium (by the unique /.disk/info marker) and sources the menu above.
 cat > "${WORK}/grub-embed.cfg" <<'EOF'
-search --set=root --file /.disk/info
-if [ -z "$root" ]; then search --set=root --file /casper/vmlinuz; fi
+search --no-floppy --set=root --file /.disk/info
 set prefix=($root)/boot/grub
 configfile ($root)/boot/grub/grub.cfg
 EOF
@@ -200,10 +199,18 @@ grub-mkstandalone \
 cat /usr/lib/grub/i386-pc/cdboot.img "${WORK}/core.img" > "${IMG}/boot/grub/bios.img"
 
 log "building UEFI image (grub x86_64-efi -> efiboot.img FAT)"
+# EFI has no core-size limit, but grub-mkstandalone's DEFAULT module set can omit
+# iso9660/search_fs_file/test — without them the embedded config can't find the
+# medium and drops to a `grub>` prompt. So list the modules explicitly.
+EFI_MODULES="memdisk tar normal iso9660 search search_fs_file search_fs_uuid \
+configfile linux echo test true ls cat halt reboot part_gpt part_msdos fat ext2 \
+all_video efi_gop efi_uga gfxterm"
 grub-mkstandalone \
   --format=x86_64-efi \
-  --output="${WORK}/bootx64.efi" \
+  --install-modules="${EFI_MODULES}" \
+  --modules="search iso9660 configfile normal part_gpt fat" \
   --locales="" --fonts="" \
+  --output="${WORK}/bootx64.efi" \
   "boot/grub/grub.cfg=${WORK}/grub-embed.cfg"
 (
   cd "${WORK}"
