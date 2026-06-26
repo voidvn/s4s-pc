@@ -1,6 +1,10 @@
-# Build artifacts
-out/*.iso
+# Build artifacts — never commit ISOs anywhere (they are multi-GB)
+*.iso
+*.img
 out/*.log
+
+# IDE noise
+.idea/
 
 # Build scratch (debootstrap chroot, squashfs staging, grub images)
 work/
