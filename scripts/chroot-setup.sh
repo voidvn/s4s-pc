@@ -38,7 +38,7 @@ apt-get install -y --no-install-recommends \
   casper ubuntu-standard \
   discover laptop-detect os-prober \
   network-manager network-manager-gnome \
-  wireless-tools wpasupplicant rfkill \
+  iw wireless-regdb wpasupplicant rfkill \
   sudo curl ca-certificates gnupg zstd jq sqlite3 whois
 
 echo "==> [chroot] GNOME desktop (curated; no snap)"
@@ -65,7 +65,7 @@ curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
   | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
 echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
   > /etc/apt/sources.list.d/vscode.list
-apt-get update
+apt-get update || true
 apt-get install -y --no-install-recommends code
 
 echo "==> [chroot] media: VLC (+ eog already installed for photos)"
@@ -73,6 +73,7 @@ apt-get install -y --no-install-recommends vlc mpv
 
 echo "==> [chroot] extra browsers (Chrome, Firefox-deb, Opera, Yandex)"
 # Each third-party repo/install is best-effort: one failure won't abort the build.
+install -m0755 -d /etc/apt/keyrings   # self-contained (don't depend on the VS Code block)
 # Google Chrome
 curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
   | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg 2>/dev/null || true
@@ -94,7 +95,7 @@ echo "opera-stable opera-stable/add-deb-source boolean false" | debconf-set-sele
 # Yandex Browser
 curl -fsSL https://repo.yandex.ru/yandex-browser/YANDEX-BROWSER-KEY.GPG \
   | gpg --dearmor -o /etc/apt/keyrings/yandex.gpg 2>/dev/null || true
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/yandex.gpg] http://repo.yandex.ru/yandex-browser/deb stable main" \
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/yandex.gpg] https://repo.yandex.ru/yandex-browser/deb stable main" \
   > /etc/apt/sources.list.d/yandex-browser.list
 
 apt-get update || true
@@ -105,12 +106,14 @@ done
 echo "==> [chroot] Node.js (LTS) + Claude Code CLI"
 curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - || echo "WARN: nodesource setup failed"
 apt-get install -y nodejs || echo "WARN: nodejs failed"
+# NodeSource nodejs bundles npm; if that path failed, fall back to Ubuntu's npm.
+command -v npm >/dev/null 2>&1 || apt-get install -y npm || echo "WARN: npm missing"
 # Claude Code CLI — installed only; NO login/credentials baked into the image.
 npm install -g @anthropic-ai/claude-code || echo "WARN: claude-code install failed"
 
 echo "==> [chroot] Postman (vendor tarball)"
-if curl -fsSL https://dl.pstmn.io/download/latest/linux_64 -o /tmp/postman.tar.gz; then
-  tar -xzf /tmp/postman.tar.gz -C /opt
+if curl -fsSL https://dl.pstmn.io/download/latest/linux_64 -o /tmp/postman.tar.gz \
+   && tar -xzf /tmp/postman.tar.gz -C /opt; then
   ln -sf /opt/Postman/Postman /usr/local/bin/postman
   cat > /usr/share/applications/postman.desktop <<'PD'
 [Desktop Entry]
@@ -140,7 +143,7 @@ curl -fsSL https://download.opensuse.org/repositories/security:zeek/xUbuntu_24.0
   | gpg --dearmor -o /etc/apt/keyrings/zeek.gpg
 echo "deb [signed-by=/etc/apt/keyrings/zeek.gpg] https://download.opensuse.org/repositories/security:/zeek/xUbuntu_24.04/ /" \
   > /etc/apt/sources.list.d/zeek.list
-apt-get update
+apt-get update || true
 apt-get install -y --no-install-recommends zeek-lts
 # Configure Zeek: standalone capture on the primary NIC (resolved at boot),
 # hourly rotation, ~26-week (182 day) retention.
