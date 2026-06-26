@@ -32,11 +32,13 @@ sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen en_US.UTF-8
 update-locale LANG=en_US.UTF-8
 
-echo "==> [chroot] kernel + live session (casper)"
+echo "==> [chroot] kernel + live session (casper) + hardware firmware/drivers"
 apt-get install -y --no-install-recommends \
-  linux-generic casper ubuntu-standard \
+  linux-generic linux-firmware linux-modules-extra-generic \
+  casper ubuntu-standard \
   discover laptop-detect os-prober \
   network-manager network-manager-gnome \
+  wireless-tools wpasupplicant rfkill \
   sudo curl ca-certificates gnupg zstd jq sqlite3 whois
 
 echo "==> [chroot] GNOME desktop (curated; no snap)"
@@ -65,6 +67,64 @@ echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://package
   > /etc/apt/sources.list.d/vscode.list
 apt-get update
 apt-get install -y --no-install-recommends code
+
+echo "==> [chroot] media: VLC (+ eog already installed for photos)"
+apt-get install -y --no-install-recommends vlc mpv
+
+echo "==> [chroot] extra browsers (Chrome, Firefox-deb, Opera, Yandex)"
+# Each third-party repo/install is best-effort: one failure won't abort the build.
+# Google Chrome
+curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+  | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg 2>/dev/null || true
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+  > /etc/apt/sources.list.d/google-chrome.list
+# Firefox — official Mozilla .deb (NOT the Ubuntu snap), pinned above the snap shim
+curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
+  | gpg --dearmor -o /etc/apt/keyrings/packages.mozilla.org.gpg 2>/dev/null || true
+echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg] https://packages.mozilla.org/apt mozilla main" \
+  > /etc/apt/sources.list.d/mozilla.list
+printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' \
+  > /etc/apt/preferences.d/mozilla
+# Opera
+curl -fsSL https://deb.opera.com/archive.key \
+  | gpg --dearmor -o /etc/apt/keyrings/opera.gpg 2>/dev/null || true
+echo "deb [signed-by=/etc/apt/keyrings/opera.gpg] https://deb.opera.com/opera-stable/ stable non-free" \
+  > /etc/apt/sources.list.d/opera.list
+echo "opera-stable opera-stable/add-deb-source boolean false" | debconf-set-selections
+# Yandex Browser
+curl -fsSL https://repo.yandex.ru/yandex-browser/YANDEX-BROWSER-KEY.GPG \
+  | gpg --dearmor -o /etc/apt/keyrings/yandex.gpg 2>/dev/null || true
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/yandex.gpg] http://repo.yandex.ru/yandex-browser/deb stable main" \
+  > /etc/apt/sources.list.d/yandex-browser.list
+
+apt-get update || true
+for pkg in google-chrome-stable firefox opera-stable yandex-browser-stable; do
+  apt-get install -y --no-install-recommends "$pkg" || echo "WARN: $pkg failed (repo down?)"
+done
+
+echo "==> [chroot] Node.js (LTS) + Claude Code CLI"
+curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - || echo "WARN: nodesource setup failed"
+apt-get install -y nodejs || echo "WARN: nodejs failed"
+# Claude Code CLI — installed only; NO login/credentials baked into the image.
+npm install -g @anthropic-ai/claude-code || echo "WARN: claude-code install failed"
+
+echo "==> [chroot] Postman (vendor tarball)"
+if curl -fsSL https://dl.pstmn.io/download/latest/linux_64 -o /tmp/postman.tar.gz; then
+  tar -xzf /tmp/postman.tar.gz -C /opt
+  ln -sf /opt/Postman/Postman /usr/local/bin/postman
+  cat > /usr/share/applications/postman.desktop <<'PD'
+[Desktop Entry]
+Type=Application
+Name=Postman
+Exec=/opt/Postman/Postman
+Icon=/opt/Postman/app/resources/app/assets/icon.png
+Terminal=false
+Categories=Development;
+PD
+  rm -f /tmp/postman.tar.gz
+else
+  echo "WARN: Postman download failed"
+fi
 
 echo "==> [chroot] auditing: auditd + audispd-plugins"
 apt-get install -y --no-install-recommends auditd audispd-plugins

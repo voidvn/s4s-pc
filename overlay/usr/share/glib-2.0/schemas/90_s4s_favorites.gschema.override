@@ -2,4 +2,4 @@
 # gschemas.compiled by chroot-setup.sh (glib-compile-schemas).
 # 'vaultwarden.desktop' is our launcher (opens http://localhost:8080).
 [org.gnome.shell]
-favorite-apps=['vaultwarden.desktop', 'org.gnome.Epiphany.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'gnome-control-center.desktop']
+favorite-apps=['vaultwarden.desktop', 'google-chrome.desktop', 'firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'code.desktop', 'gnome-control-center.desktop']
