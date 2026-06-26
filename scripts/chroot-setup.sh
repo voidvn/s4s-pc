@@ -35,13 +35,23 @@ update-locale LANG=en_US.UTF-8
 
 echo "==> [chroot] kernel + live session (casper) + hardware firmware/drivers"
 apt-get install -y --no-install-recommends \
-  linux-generic linux-firmware linux-modules-extra-generic \
+  linux-generic linux-firmware \
   casper ubuntu-standard \
   discover laptop-detect os-prober \
   network-manager network-manager-gnome \
   iw wireless-regdb wpasupplicant rfkill \
   ethtool wakeonlan \
   sudo curl ca-certificates gnupg zstd jq sqlite3 whois
+
+# linux-modules-extra (many Wi-Fi/extra drivers) is a Recommends of the versioned
+# kernel image, dropped by --no-install-recommends. The meta name
+# 'linux-modules-extra-generic' does NOT exist; install the versioned package for
+# the kernel that just landed (derived from /lib/modules).
+KVER="$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -1)"
+if [ -n "$KVER" ]; then
+  apt-get install -y --no-install-recommends "linux-modules-extra-${KVER}" \
+    || echo "WARN: linux-modules-extra-${KVER} not found"
+fi
 
 echo "==> [chroot] GNOME desktop (curated; no snap)"
 apt-get install -y --no-install-recommends \
