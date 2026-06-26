@@ -1,0 +1,16 @@
+[Unit]
+Description=Enable Wake-on-LAN (magic packet) on the wired NIC
+Documentation=man:ethtool(8)
+# After power-mgmt services so they can't clear the WoL bit after us.
+After=network-online.target NetworkManager.service tlp.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Arm WoL at boot; re-arm at shutdown (some NICs clear it on link-down).
+ExecStart=/usr/local/sbin/enable-wol.sh
+ExecStop=/usr/local/sbin/enable-wol.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,7 @@ export DEBIAN_FRONTEND=noninteractive HOME=/root LC_ALL=C
 # ============================================================================
 ROOT_PASSWORD="${ROOT_PASSWORD:-root}"
 WORKER_PASSWORD="${WORKER_PASSWORD:-worker}"
+RUSTDESK_PASSWORD="${RUSTDESK_PASSWORD:-}"   # empty => unattended access NOT pre-set
 
 echo "==> [chroot] base configuration"
 printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d   # don't start daemons in chroot
@@ -39,6 +40,7 @@ apt-get install -y --no-install-recommends \
   discover laptop-detect os-prober \
   network-manager network-manager-gnome \
   iw wireless-regdb wpasupplicant rfkill \
+  ethtool wakeonlan \
   sudo curl ca-certificates gnupg zstd jq sqlite3 whois
 
 echo "==> [chroot] GNOME desktop (curated; no snap)"
@@ -129,6 +131,37 @@ else
   echo "WARN: Postman download failed"
 fi
 
+echo "==> [chroot] RustDesk (remote desktop) + force X11 (Wayland breaks unattended)"
+# RustDesk unattended capture/input does NOT work under Wayland (connects but black
+# screen + dead input: 'unsupported display server type wayland'). Force Xorg in GDM.
+if grep -q 'WaylandEnable' /etc/gdm3/custom.conf; then
+  sed -i 's/^#\?\s*WaylandEnable=.*/WaylandEnable=false/' /etc/gdm3/custom.conf
+else
+  sed -i '/^\[daemon\]/a WaylandEnable=false' /etc/gdm3/custom.conf
+fi
+# Fetch the latest stable RustDesk .deb (Flutter build, NOT -sciter) from GitHub.
+RD_URL="$(curl -fsSL https://api.github.com/repos/rustdesk/rustdesk/releases/latest \
+  | jq -r '.assets[] | select(.name|test("x86_64\\.deb$")) | select(.name|test("sciter")|not) | .browser_download_url' | head -n1)"
+if [ -n "${RD_URL:-}" ] && curl -fSL -o /tmp/rustdesk.deb "$RD_URL"; then
+  apt-get install -y /tmp/rustdesk.deb || echo "WARN: rustdesk install failed"
+  # The .deb postinst installs/enables the unit ONLY when PID 1 is systemd (false in
+  # a chroot), so install the bundled unit ourselves; enabling is done in the loop below.
+  if [ -f /usr/share/rustdesk/files/systemd/rustdesk.service ]; then
+    install -Dm644 /usr/share/rustdesk/files/systemd/rustdesk.service \
+      /usr/lib/systemd/system/rustdesk.service
+  fi
+  rm -f /tmp/rustdesk.deb
+else
+  echo "WARN: could not fetch RustDesk .deb"
+fi
+# Bake the unattended (INCOMING) password only if provided at build time. Empty =>
+# unattended access not pre-configured (avoids shipping a weak shared remote password).
+install -d -m700 /etc/rustdesk
+printf '%s' "${RUSTDESK_PASSWORD}" > /etc/rustdesk/password
+chmod 600 /etc/rustdesk/password
+# Never ship a build-host RustDesk config — the ID must be generated per machine.
+rm -rf /root/.config/rustdesk
+
 echo "==> [chroot] auditing: auditd + audispd-plugins"
 apt-get install -y --no-install-recommends auditd audispd-plugins
 # Persistent journald (the drop-in is shipped via overlay; ensure dir exists).
@@ -184,7 +217,8 @@ echo "==> [chroot] enable services"
 systemctl set-default graphical.target
 for u in gdm3 NetworkManager docker auditd opensnitch \
          zeek.service zeek-cron.timer opensnitch-prune.timer \
-         vaultwarden.service s4s-lock-worker.service; do
+         vaultwarden.service s4s-lock-worker.service \
+         rustdesk.service rustdesk-firstboot.service wake-on-lan.service; do
   systemctl enable "$u" 2>/dev/null || echo "  (enable $u deferred to first boot)"
 done
 

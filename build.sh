@@ -20,6 +20,7 @@ MODE="${1:-build}"
 VW_MODE="${VW_MODE:-offline}"
 ROOT_PASSWORD="${ROOT_PASSWORD:-root}"        # override: ROOT_PASSWORD=... ./build.sh
 WORKER_PASSWORD="${WORKER_PASSWORD:-worker}"
+RUSTDESK_PASSWORD="${RUSTDESK_PASSWORD:-}"    # set for unattended remote access
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "${ROOT}/out"
@@ -35,6 +36,7 @@ docker run --rm -it \
   -e VW_MODE="${VW_MODE}" \
   -e ROOT_PASSWORD="${ROOT_PASSWORD}" \
   -e WORKER_PASSWORD="${WORKER_PASSWORD}" \
+  -e RUSTDESK_PASSWORD="${RUSTDESK_PASSWORD}" \
   -v "${ROOT}/out:/build/out" \
   "${IMAGE}"
 

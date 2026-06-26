@@ -7,10 +7,8 @@ Wants=network-online.target
 Type=forking
 Environment=ZEEKPATH=/opt/zeek
 # Resolve the primary (default-route) NIC at boot and inject it into node.cfg
-# (the live interface name is unknown at build time: enp0s3 / ens18 / eth0 ...).
-ExecStartPre=/bin/sh -c 'IFACE=$(ip route show default 2>/dev/null | awk "{print \\$5; exit}"); \
-  [ -n "$IFACE" ] || IFACE=$(ls /sys/class/net | grep -v "^lo$" | head -n1); \
-  sed -i "s/^interface=.*/interface=af_packet::$IFACE/" /opt/zeek/etc/node.cfg'
+# (interface name unknown at build time; done in a script so $ isn't eaten by systemd).
+ExecStartPre=/usr/local/sbin/zeek-set-iface.sh
 ExecStart=/opt/zeek/bin/zeekctl deploy
 ExecStop=/opt/zeek/bin/zeekctl stop
 RemainAfterExit=yes

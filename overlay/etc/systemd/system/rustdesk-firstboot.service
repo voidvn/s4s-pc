@@ -1,0 +1,17 @@
+[Unit]
+Description=First-boot RustDesk unattended provisioning (per-device)
+Wants=rustdesk.service network-online.target
+After=rustdesk.service network-online.target systemd-machine-id-commit.service display-manager.service
+# Run once per device. The per-machine ID depends on a unique /etc/machine-id,
+# which systemd generates on first boot before this runs.
+ConditionPathExists=!/var/lib/rustdesk-provisioned
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sleep 8
+ExecStart=/usr/local/sbin/rustdesk-unattended.sh
+ExecStartPost=/bin/touch /var/lib/rustdesk-provisioned
+
+[Install]
+WantedBy=multi-user.target

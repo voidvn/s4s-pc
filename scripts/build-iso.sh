@@ -14,6 +14,7 @@ SECMIRROR="${SECMIRROR:-http://security.ubuntu.com/ubuntu/}"
 VW_MODE="${VW_MODE:-offline}"             # offline = bundle image | pull = fetch on 1st boot
 ROOT_PASSWORD="${ROOT_PASSWORD:-root}"    # CHANGE THESE: passwords for the two accounts
 WORKER_PASSWORD="${WORKER_PASSWORD:-worker}"
+RUSTDESK_PASSWORD="${RUSTDESK_PASSWORD:-}"  # empty => RustDesk unattended access not pre-set
 VOLID="S4S_PC"
 ISO_NAME="${ISO_NAME:-s4s-pc-${SUITE}-amd64.iso}"
 
@@ -62,7 +63,7 @@ mount -t tmpfs tmpfs   "${CHROOT}/run"
 # === 4. Overlay files (systemd units, compose, launchers, configs) =========
 log "copying overlay/ into the rootfs"
 cp -a "${ROOT}/overlay/." "${CHROOT}/"
-chmod +x "${CHROOT}/usr/local/bin/"*.sh 2>/dev/null || true
+chmod +x "${CHROOT}/usr/local/bin/"*.sh "${CHROOT}/usr/local/sbin/"*.sh 2>/dev/null || true
 
 # === 5. Vaultwarden offline bundle (skopeo -> docker-archive tar) ===========
 mkdir -p "${CHROOT}/opt/vaultwarden"
@@ -81,6 +82,7 @@ cp "${ROOT}/scripts/chroot-setup.sh" "${CHROOT}/root/chroot-setup.sh"
 chmod +x "${CHROOT}/root/chroot-setup.sh"
 log "running chroot-setup.sh (users, GNOME, Docker, auditing, apps, installer)"
 chroot "${CHROOT}" env ROOT_PASSWORD="${ROOT_PASSWORD}" WORKER_PASSWORD="${WORKER_PASSWORD}" \
+  RUSTDESK_PASSWORD="${RUSTDESK_PASSWORD}" \
   /root/chroot-setup.sh
 rm -f "${CHROOT}/root/chroot-setup.sh"
 
